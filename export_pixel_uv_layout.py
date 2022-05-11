@@ -11,21 +11,36 @@ class OT_ExportPixelUVLayoutFilebrowser(bpy.types.Operator, bpy_extras.io_utils.
     bl_options = {"REGISTER"}
 
     filename_ext = ".png"
-    #
-    # filter_glob: StringProperty( default='*.png;', options={'HIDDEN'} )
-    # some_boolean: BoolProperty( name='Do a thing', description='Do a thing with the file you\'ve selected', default=True, )
+
+    filter_glob: bpy.props.StringProperty(default='*.png;*.jpg', options={'HIDDEN'})
+
+    transparency: bpy.props.BoolProperty(name="Transparency", description='Should the image background be transparent?', default=True, )
+
+    # TODO make with and height a size property for a cleaner look.
+    width: bpy.props.IntProperty(
+        name="Width",
+        description="The width of the image.",
+        default=1
+    )
+    height: bpy.props.IntProperty(
+        name="Height",
+        description="The height of the image.",
+        default=1
+    )
 
     def execute(self, context):
         filename, extension = os.path.splitext(self.filepath)
 
-        width, height = get_width_height()
+        width = self.width
+        height = self.height
+
         uvs_list = get_uvs_list()
 
         print("get pixels")
-        pixels = get_image(uvs_list, width, height, True)
+        pixels = get_image(uvs_list, width, height, self.transparency)
 
         print("create image")
-        image = bpy.data.images.new(filename, width, height, alpha=True)
+        image = bpy.data.images.new(filename, width, height, alpha=self.transparency)
         image.file_format = extension[1:].upper()
         image.filepath = self.filepath
         image.pixels = pixels[:]
@@ -49,11 +64,8 @@ class OT_ExportPixelUVLayout(bpy.types.Operator):
 
 
 def execute():
-    bpy.ops.uv.export_pixel_uv_layout_filebrowser("INVOKE_DEFAULT")
-
-
-def random(number: float):
-    return number * math.pi * 10 % 1
+    width, height = get_width_height()
+    bpy.ops.uv.export_pixel_uv_layout_filebrowser('INVOKE_DEFAULT', width=width, height=height)
 
 
 def get_width_height():
@@ -209,23 +221,26 @@ def get_image(uvs_list: list[list[(float, float)]], width: int, height: int, tra
 
                 pixels[i + 3] = 1
 
-    color = 7
     print("UVs:", len(uvs_list), "Size: ", width, height)
     for uvs in uvs_list:
-        r = random(color)
-        g = random(r)
-        b = random(g)
-        color = b
-
         if len(uvs) == 0:
             continue
+
+        average_x = 0.0
+        average_y = 0.0
+        for uv in uvs:
+            average_x += uv[0]
+            average_y += uv[1]
+
+        average_x = max(0.0, min(average_x / len(uvs), 1.0))
+        average_y = max(0.0, min(average_y / len(uvs), 1.0))
 
         for i in calculate_draw_pixel(uvs, width, height):
             if i >= len(pixels) or i < 0:
                 continue
-            pixels[i] = r
-            pixels[i + 1] = g
-            pixels[i + 2] = b
+            pixels[i] = average_x
+            pixels[i + 1] = average_y
+            pixels[i + 2] = 0
             pixels[i + 3] = 1
 
     return pixels
