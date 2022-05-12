@@ -58,14 +58,23 @@ class UVInfo:
     def __init__(self, vertex: list[float], direction: Direction):
         self.direction = direction
 
-        if self.direction == Direction.POSITIVE_X or self.direction == Direction.NEGATIVE_X:
+        if self.direction == Direction.POSITIVE_X:
             self.x = vertex.y
             self.y = vertex.z
-        elif self.direction == Direction.POSITIVE_Y or self.direction == Direction.NEGATIVE_Y:
+        elif self.direction == Direction.NEGATIVE_X:
+            self.x = -vertex.y
+            self.y = vertex.z
+        elif self.direction == Direction.POSITIVE_Y:
             self.x = vertex.x
             self.y = vertex.z
-        else:
+        elif self.direction == Direction.NEGATIVE_Y:
+            self.x = -vertex.x
+            self.y = vertex.z
+        elif self.direction == Direction.POSITIVE_Z:
             self.x = vertex.x
+            self.y = vertex.y
+        elif self.direction == Direction.NEGATIVE_Z:
+            self.x = -vertex.x
             self.y = vertex.y
 
 
@@ -76,42 +85,9 @@ class OT_UnwrapPixelPerfect(bpy.types.Operator):
     bl_description = "Generates pixel perfect uvs based on the face direction"
 
     def execute(self, context):
-        def recalculate_uv_positions(raw_uvs: list[UVInfo], scale: float, width: float, height: float):
-            min_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            max_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-            add_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-            for raw_uv in raw_uvs:
-                i = raw_uv.direction.get_index()
-                min_x[i] = min(min_x[i], raw_uv.x)
-                max_x[i] = max(max_x[i], raw_uv.x)
-
-            max_x.insert(0, 0.0)
-
-            temp_add_x = 0.0
-            for i in range(7):
-                temp_add_x += max_x[i] - min_x[i]
-                add_x[i] += temp_add_x
-
-            for raw_uv in raw_uvs:
-                i = raw_uv.direction.get_index()
-                raw_uv.x += add_x[i]
-
-                raw_uv.x = round(raw_uv.x * scale) / width
-                raw_uv.y = round(raw_uv.y * scale) / height
-
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        width: float = 1.0
-        height: float = 1.0
-        for area in bpy.context.screen.areas:
-            if area.type == 'IMAGE_EDITOR':
-                image_editor: bpy.types.SpaceImageEditor = area.spaces.active
-                if image_editor.image is not None:
-                    image_size = image_editor.image.size
-                    width = max(1.0, image_size[0])
-                    height = max(1.0, image_size[1])
+        width, height = get_width_height()
 
         unit_scale = bpy.context.scene.unit_settings.scale_length
 
@@ -153,6 +129,45 @@ class OT_UnwrapPixelPerfect(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='EDIT')
 
         return {'FINISHED'}
+
+
+# TODO Move to different script since it is used in multiple files
+def get_width_height():
+    for area in bpy.context.screen.areas:
+        if area.type == 'IMAGE_EDITOR':
+            image_editor: bpy.types.SpaceImageEditor = area.spaces.active
+            image = image_editor.image
+            if image is None:
+                return 1, 1
+            else:
+                image_size = image_editor.image.size
+                return image_size[0], image_size[1]
+
+
+def recalculate_uv_positions(raw_uvs: list[UVInfo], scale: float, width: float, height: float):
+    min_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    max_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    add_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    for raw_uv in raw_uvs:
+        i = raw_uv.direction.get_index()
+        min_x[i] = min(min_x[i], raw_uv.x)
+        max_x[i] = max(max_x[i], raw_uv.x)
+
+    max_x.insert(0, 0.0)
+
+    temp_add_x = 0.0
+    for i in range(7):
+        temp_add_x += max_x[i] - min_x[i]
+        add_x[i] += temp_add_x
+
+    for raw_uv in raw_uvs:
+        i = raw_uv.direction.get_index()
+        raw_uv.x += add_x[i]
+
+        raw_uv.x = round(raw_uv.x * scale) / width
+        raw_uv.y = round(raw_uv.y * scale) / height
 
 
 def add_menu_item(self, context):

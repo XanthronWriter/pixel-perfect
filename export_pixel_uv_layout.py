@@ -68,6 +68,7 @@ def execute():
     bpy.ops.uv.export_pixel_uv_layout_filebrowser('INVOKE_DEFAULT', width=width, height=height)
 
 
+# TODO Move to different script since it is used in multiple files
 def get_width_height():
     for area in bpy.context.screen.areas:
         if area.type == 'IMAGE_EDITOR':
