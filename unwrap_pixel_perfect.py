@@ -78,9 +78,9 @@ class UVInfo:
             self.y = vertex.y
 
 
-class OT_UnwrapPixelPerfect(bpy.types.Operator):
-    bl_idname = "uv.unwrap_pixel_perfect"
-    bl_label = "Unwrap Pixel Perfect"
+class OT_UnwrapPixelPerfectByDirection(bpy.types.Operator):
+    bl_idname = "uv.unwrap_pixel_perfect_by_direction"
+    bl_label = "Unwrap Pixel Perfect by Direction"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Generates pixel perfect uvs based on the face direction"
 
@@ -95,6 +95,7 @@ class OT_UnwrapPixelPerfect(bpy.types.Operator):
             mesh_data: bpy.types.Mesh = selected_object.data
 
             raw_uvs = []
+            directions = []
             for polygon in mesh_data.polygons:
                 # Only on selected
                 normal: mathutils.Vector = polygon.normal
@@ -113,9 +114,10 @@ class OT_UnwrapPixelPerfect(bpy.types.Operator):
                     direction = angle_z.direction
 
                 for i in polygon.vertices:
-                    raw_uvs.append(UVInfo(mesh_data.vertices[i].co, direction))
+                    raw_uvs.append(get_uv_from_vertex_by_direction(mesh_data.vertices[i].co, direction))
+                    directions.append(direction)
 
-            recalculate_uv_positions(raw_uvs, unit_scale*1.0, width, height)
+            recalculate_uv_positions_by_direction(raw_uvs, directions, unit_scale * 1.0, width, height)
 
             for polygon in mesh_data.polygons:
                 for i in polygon.loop_indices:
@@ -123,8 +125,76 @@ class OT_UnwrapPixelPerfect(bpy.types.Operator):
                         mesh_uv_loop = mesh_data.uv_layers.active.data[i]
                         raw_uv = raw_uvs[i]
 
-                        mesh_uv_loop.uv.x = raw_uv.x
-                        mesh_uv_loop.uv.y = raw_uv.y
+                        mesh_uv_loop.uv.x = raw_uv[0]
+                        mesh_uv_loop.uv.y = raw_uv[1]
+
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        return {'FINISHED'}
+
+
+class OT_UnwrapPixelPerfectBySize(bpy.types.Operator):
+    bl_idname = "uv.unwrap_pixel_perfect_by_size"
+    bl_label = "Unwrap Pixel Perfect by Size"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Generates pixel perfect uvs based on the size"
+
+    def execute(self, context):
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        width, height = get_width_height()
+
+        unit_scale = bpy.context.scene.unit_settings.scale_length
+
+        for selected_object in bpy.context.selected_objects:
+            mesh_data: bpy.types.Mesh = selected_object.data
+
+            raw_uvs = []
+            directions = []
+            for polygon in mesh_data.polygons:
+                # Only on selected
+                normal: mathutils.Vector = polygon.normal
+                angle_x: Angle = Angle(normal, Direction.POSITIVE_X)
+                angle_y: Angle = Angle(normal, Direction.POSITIVE_Y)
+                angle_z: Angle = Angle(normal, Direction.POSITIVE_Z)
+
+                direction: Direction
+
+                a: mathutils.Vector
+
+                # get new uvs
+                if angle_x.abs_angle <= angle_y.abs_angle and angle_x.abs_angle <= angle_z.abs_angle:
+                    a = mathutils.Vector((0, 1, 0)).cross(normal)
+                    direction = angle_x.direction
+                elif angle_y.abs_angle <= angle_z.abs_angle:
+                    a = mathutils.Vector((0, 0, 1)).cross(normal)
+                    direction = angle_y.direction
+                else:
+                    a = mathutils.Vector((1, 0, 0)).cross(normal)
+                    direction = angle_z.direction
+
+                b = a.cross(normal)
+
+                t = mathutils.Matrix(((normal.x, a.x, b.x), (normal.y, a.y, b.y), (normal.z, a.z, b.z)))
+                t.invert()
+
+                for i in polygon.vertices:
+                    vertex = t @ mesh_data.vertices[i].co
+                    # TODO Rotate vector based on direction
+                    raw_uvs.append([vertex.y, vertex.z])
+                    directions.append(Direction.POSITIVE_X)
+
+            # FIXME UVs are overlapping instead of sequence
+            recalculate_uv_positions_by_direction(raw_uvs, directions, unit_scale * 1.0, width, height)
+
+            for polygon in mesh_data.polygons:
+                for i in polygon.loop_indices:
+                    if polygon.select:
+                        mesh_uv_loop = mesh_data.uv_layers.active.data[i]
+                        raw_uv = raw_uvs[i]
+
+                        mesh_uv_loop.uv.x = raw_uv[0]
+                        mesh_uv_loop.uv.y = raw_uv[1]
 
         bpy.ops.object.mode_set(mode='EDIT')
 
@@ -144,16 +214,16 @@ def get_width_height():
                 return image_size[0], image_size[1]
 
 
-def recalculate_uv_positions(raw_uvs: list[UVInfo], scale: float, width: float, height: float):
+def recalculate_uv_positions_by_direction(raw_uvs: list[UVInfo], directions: list[Direction], scale: float, width: float, height: float):
     min_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     max_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     add_x = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-    for raw_uv in raw_uvs:
-        i = raw_uv.direction.get_index()
-        min_x[i] = min(min_x[i], raw_uv.x)
-        max_x[i] = max(max_x[i], raw_uv.x)
+    for i in range(len(raw_uvs)):
+        value = directions[i].get_index()
+        min_x[value] = min(min_x[value], raw_uvs[i][0])
+        max_x[value] = max(max_x[value], raw_uvs[i][1])
 
     max_x.insert(0, 0.0)
 
@@ -162,26 +232,44 @@ def recalculate_uv_positions(raw_uvs: list[UVInfo], scale: float, width: float, 
         temp_add_x += max_x[i] - min_x[i]
         add_x[i] += temp_add_x
 
-    for raw_uv in raw_uvs:
-        i = raw_uv.direction.get_index()
-        raw_uv.x += add_x[i]
+    for i in range(len(raw_uvs)):
+        value = directions[i].get_index()
+        raw_uvs[i][0] += add_x[value]
 
-        raw_uv.x = round(raw_uv.x * scale) / width
-        raw_uv.y = round(raw_uv.y * scale) / height
+        raw_uvs[i][0] = round(raw_uvs[i][0] * scale) / width
+        raw_uvs[i][1] = round(raw_uvs[i][1] * scale) / height
+
+
+def get_uv_from_vertex_by_direction(vertex: list[float], direction: Direction):
+    if direction == Direction.POSITIVE_X:
+        return [vertex.y, vertex.z]
+    elif direction == Direction.NEGATIVE_X:
+        return [-vertex.y, vertex.z]
+    elif direction == Direction.POSITIVE_Y:
+        return [vertex.x, vertex.z]
+    elif direction == Direction.NEGATIVE_Y:
+        return [-vertex.x, vertex.z]
+    elif direction == Direction.POSITIVE_Z:
+        return [vertex.x, vertex.y]
+    elif direction == Direction.NEGATIVE_Z:
+        return [-vertex.x, vertex.y]
 
 
 def add_menu_item(self, context):
-    self.layout.operator("uv.unwrap_pixel_perfect")
+    self.layout.operator("uv.unwrap_pixel_perfect_by_direction")
+    self.layout.operator("uv.unwrap_pixel_perfect_by_size")
 
 
 def register():
-    bpy.utils.register_class(OT_UnwrapPixelPerfect)
+    bpy.utils.register_class(OT_UnwrapPixelPerfectByDirection)
+    bpy.utils.register_class(OT_UnwrapPixelPerfectBySize)
 
     bpy.types.VIEW3D_MT_uv_map.append(add_menu_item)
 
 
 def unregister():
-    bpy.utils.unregister_class(OT_UnwrapPixelPerfect)
+    bpy.utils.unregister_class(OT_UnwrapPixelPerfectByDirection)
+    bpy.utils.unregister_class(OT_UnwrapPixelPerfectBySize)
 
     bpy.types.VIEW3D_MT_uv_map.remove(add_menu_item)
 
