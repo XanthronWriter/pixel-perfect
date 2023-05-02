@@ -12,7 +12,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-import sys
 import importlib
 
 bl_info = {
@@ -20,13 +19,13 @@ bl_info = {
     "author": "Xanthron",
     "description": "Generate UVs for 3D Pixelart",
     "blender": (3, 1, 2),
-    "version": (1, 2, 0),
+    "version": (2, 0, 0),
     "location": "",
     "warning": "",
     "category": "UV"
 }
 
-module_names = ["unwrap_pixel_perfect", "export_pixel_uv_layout"]
+module_names = ["helper", "image.export_pixel_uv_layout", "uv_manipulating.move_uv_to_closest_pixel", "uv_manipulating.rotate_uvs_to_closest_orthogonal", "selection.isolate_selection_by_direction", "uv_unwrapping.unwrap_by_direction"]
 
 
 def register():

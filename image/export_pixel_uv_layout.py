@@ -3,6 +3,7 @@ import os
 
 import bpy
 import bpy_extras.io_utils
+from .. import helper
 
 
 class OT_ExportPixelUVLayoutFilebrowser(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
@@ -16,17 +17,26 @@ class OT_ExportPixelUVLayoutFilebrowser(bpy.types.Operator, bpy_extras.io_utils.
 
     transparency: bpy.props.BoolProperty(name="Transparency", description='Should the image background be transparent?', default=True, )
 
-    # TODO make with and height a size property for a cleaner look.
     width: bpy.props.IntProperty(
-        name="Width",
-        description="The width of the image.",
+        name="",
+        description="The width of the image",
         default=1
     )
     height: bpy.props.IntProperty(
-        name="Height",
-        description="The height of the image.",
+        name="",
+        description="The height of the image",
         default=1
     )
+
+    def draw(self, context):
+        self.layout.use_property_split = True
+
+        self.layout.prop(data=self, property="transparency")
+
+        column = self.layout.column(align=True)
+        column.use_property_split = True
+        column.prop(data=self, property="width", text="Size")
+        column.prop(data=self, property="height", text=" ")
 
     def execute(self, context):
         filename, extension = os.path.splitext(self.filepath)
@@ -64,21 +74,8 @@ class OT_ExportPixelUVLayout(bpy.types.Operator):
 
 
 def execute():
-    width, height = get_width_height()
+    width, height = helper.get_width_height()
     bpy.ops.uv.export_pixel_uv_layout_filebrowser('INVOKE_DEFAULT', width=width, height=height)
-
-
-# TODO Move to different script since it is used in multiple files
-def get_width_height():
-    for area in bpy.context.screen.areas:
-        if area.type == 'IMAGE_EDITOR':
-            image_editor: bpy.types.SpaceImageEditor = area.spaces.active
-            image = image_editor.image
-            if image is None:
-                return 64, 64
-            else:
-                image_size = image_editor.image.size
-                return image_size[0], image_size[1]
 
 
 def get_uvs_list():
