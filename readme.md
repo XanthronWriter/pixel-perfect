@@ -21,9 +21,11 @@ First select an image in the **UV Image Editor**. Then in **Edit-mode** open the
 
 ### 3. Modify UVs
 - **Group to Pixel**:  
-  Hover over a Vertex and run this command under **UV Context Menu** -> **Snap** -> **Group to Pixel** as Shortcut. The hovered vertex moves to the closest pixel corner. Every selected vertex is moved respectively.
+  Run this command under **UV Context Menu** -> **Snap** -> **Group to Pixel**. Hover over a vertex and left click it to set it as reference point. Drag your mouse to the desired location. The reference point snaps to the pixel corner under the mouse.
 - **Group to orthogonal Line**:  
-  Hover over a edge and run this command under **UV Context Menu** -> **Snap** -> **Group to orthogonal Line** as Shortcut. The closest angle between the edge and either the x ore the y axises is calculated. Every connected vertex is rotated around to the mouse closest vertex by this angel.
+  Run this command under **UV Context Menu** -> **Snap** -> **Group to orthogonal Line**. Hover over a vertex and left click it to set it as reference point. Drag your mouse to the desired location. Everything selected is rotated based on the mouse input. It snaps automatically to the X or Y axis.
+- **Mirror around Vertex**:  
+  Run this command under **UV Context Menu** -> **Snap** -> **Mirror around Vertex**. Hover over a vertex and left click it to set it as reference point. Drag your mouse to the desired location. Everything selected is mirrored around the vertex and the selected axis.
 
 ### 4. Export UV Layout
 While still in **Edit-mode** select all Faces and click on the **UV** header bar option of the **UV Editor**. Select **Export Pixel UV Layout** and save the image on your system.
@@ -34,3 +36,9 @@ In Blender under **Edit** -> **Preferences...** -> **Add-ons** click the **Insta
 
 ## **Tipps**
 - Set **Pixel Coordinates** inside the **UV Editor** -> **View** panel to `True` for an easier workflow.
+- I recommend to set shortcuts as followed  
+  | Function                 | Shortcut  |
+  | ------------------------ | --------- |
+  | Group to Pixel           | Shift + E |
+  | Group to orthogonal Line | Shift + R |
+  | Mirror around Vertex     | Shift + M |
