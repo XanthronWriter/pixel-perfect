@@ -19,7 +19,7 @@ bl_info = {
     "author": "Xanthron",
     "description": "Generate UVs for 3D Pixelart",
     "blender": (3, 1, 2),
-    "version": (2, 0, 0),
+    "version": (2, 1, 0),
     "location": "",
     "warning": "",
     "category": "UV"

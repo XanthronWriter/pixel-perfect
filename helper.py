@@ -3,6 +3,12 @@ import bpy
 from typing import Tuple
 
 
+def get_image_editor() -> bpy.types.SpaceImageEditor:
+    for area in bpy.context.screen.areas:
+        if area.type == "IMAGE_EDITOR":
+            return area.spaces.active
+
+
 def get_width_height() -> Tuple[int, int]:
     for area in bpy.context.screen.areas:
         if area.type == "IMAGE_EDITOR":

@@ -1,6 +1,9 @@
 import bpy
 import bmesh
 import mathutils
+import math
+import gpu
+from gpu_extras.batch import batch_for_shader
 from sys import float_info
 from .. import helper
 
@@ -11,17 +14,118 @@ class OT_MoveUVToClosestPixel(bpy.types.Operator):
     bl_description = "Select one vertex and snap it to the nearest pixel. Move every connected vertex respectively"
     bl_options = {"REGISTER", "UNDO"}
 
-    mouse_x: bpy.props.IntProperty()
-    mouse_y: bpy.props.IntProperty()
+    def __init__(self) -> None:
+        self.uvs = []
+        self.edges = []
+        self.pressed_left = False
+        super().__init__()
+
+    def end(self, context):
+        if not self._handler == None:
+            bpy.types.SpaceImageEditor.draw_handler_remove(self._handler, 'WINDOW')
+        context.area.tag_redraw()
+        pass
+
+    def get_uvs(self, context):
+        self.uvs.clear()
+        self.edges.clear()
+        for selected_object in context.selected_objects:
+            if not selected_object.type == "MESH":
+                continue
+            mesh: bpy.types.Mesh = selected_object.data
+            bm = bmesh.from_edit_mesh(mesh)
+            uv_layer = bm.loops.layers.uv.verify()
+
+            for face in bm.faces:
+                old_uv = face.loops[-1][uv_layer]
+                for loop in face.loops:
+                    uv = loop[uv_layer]
+                    if uv.select:
+                        self.uvs.append(mathutils.Vector(uv.uv))
+                        if old_uv.select:
+                            self.edges.append(mathutils.Vector(old_uv.uv))
+                            self.edges.append(mathutils.Vector(uv.uv))
+                    old_uv = uv
+
+    def get_closest(self, context, event):
+        mouse = mathutils.Vector(context.region.view2d.region_to_view(event.mouse_region_x, event.mouse_region_y))
+        distance = float_info.max
+        closest_uv = self.uvs[0]
+        for uv in self.uvs:
+            new_distance = (mouse-uv).length_squared
+            if new_distance < distance:
+                distance = new_distance
+                closest_uv = uv
+
+        self.closest_uv = closest_uv
+
+    def get_move(self, context, event):
+        mouse = mathutils.Vector(context.region.view2d.region_to_view(event.mouse_region_x, event.mouse_region_y))
+        width, height = helper.get_width_height()
+        closest_pixel = mathutils.Vector(helper.closes_pixel(mouse[0], mouse[1], width, height))
+        self.move = closest_pixel - self.closest_uv
+
+    def invoke(self, context, event):
+        self.get_uvs(context)
+        self.get_closest(context, event)
+        self.get_move(context, event)
+        context.window_manager.modal_handler_add(self)
+
+        shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+
+        zoom_multiplier = 1
+        image_editor = helper.get_image_editor()
+        if image_editor.image:
+            zoom_multiplier = image_editor.image_size[0] * 250
+            print(zoom_multiplier)
+        zoom = context.space_data.zoom[0] * zoom_multiplier
+
+        def draw():
+            shader.uniform_float("color", (1, 1, 1, 1))
+
+            edges = []
+            for edge in self.edges:
+                edges.append(edge + self.move)
+            batch_for_shader(shader, 'LINES', {"pos": edges}).draw(shader)
+
+            uvs = []
+            for uv in self.uvs:
+                uvs.append(uv + self.move)
+            batch_for_shader(shader, 'POINTS', {"pos": uvs}).draw(shader)
+
+            r = 0.025 / zoom
+            circle = []
+            for i in range(10):
+                a = i/10 * 2 * math.pi
+                circle.append(mathutils.Vector((math.sin(a) * r, math.cos(a) * r)) + self.closest_uv)
+            batch_for_shader(shader, 'LINE_LOOP', {"pos": circle}).draw(shader)
+
+            pass
+
+        self._handler = bpy.types.SpaceImageEditor.draw_handler_add(draw, (), 'WINDOW', 'POST_VIEW')
+        context.area.tag_redraw()
+        return {'RUNNING_MODAL'}
+
+    def modal(self, context, event):
+
+        if event.type == "MOUSEMOVE":
+            if self.pressed_left == False:
+                self.get_closest(context, event)
+            self.get_move(context, event)
+            context.area.tag_redraw()
+        elif event.type == "LEFTMOUSE":
+            if self.pressed_left == True:
+                self.execute(context)
+                self.end(context)
+                return {'FINISHED'}
+            else:
+                self.pressed_left = True
+        elif event.type in {"RIGHTMOUSE", "ESC"}:
+            self.end(context)
+            return {"CANCELLED"}
+        return {'RUNNING_MODAL'}
 
     def execute(self, context):
-
-        uvs = []
-        mouse = mathutils.Vector(context.region.view2d.region_to_view(self.mouse_x, self.mouse_y))
-
-        distance = float_info.max
-        mouse_uv = None
-
         for selected_object in context.selected_objects:
             if not selected_object.type == "MESH":
                 continue
@@ -33,31 +137,11 @@ class OT_MoveUVToClosestPixel(bpy.types.Operator):
                 for loop in face.loops:
                     uv = loop[uv_layer]
                     if uv.select:
-                        uv = uv.uv
-                        uvs.append(uv)
-                        new_distance = (mouse - uv).length_squared
-                        if new_distance < distance:
-                            distance = new_distance
-                            mouse_uv = uv
-
-        if len(uvs) == 0:
-            return {"FINISHED"}
-
-        width, height = helper.get_width_height()
-        closest = mathutils.Vector(helper.closes_pixel(mouse_uv[0], mouse_uv[1], width, height))
-        move = closest - mouse_uv
-
-        for uv in uvs:
-            uv += move
+                        uv.uv += self.move
 
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.mode_set(mode='EDIT')
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        self.mouse_x = event.mouse_region_x
-        self.mouse_y = event.mouse_region_y
-        return self.execute(context)
+        return {"FINISHED"}
 
 
 def add_menu_item(self: bpy.types.Menu, context):
