@@ -19,13 +19,13 @@ bl_info = {
     "author": "Xanthron",
     "description": "Generate UVs for 3D Pixelart",
     "blender": (3, 1, 2),
-    "version": (2, 1, 0),
+    "version": (2, 1, 1),
     "location": "",
     "warning": "",
     "category": "UV"
 }
 
-module_names = ["helper", "image.export_pixel_uv_layout", "uv_manipulating.move_uv_to_closest_pixel", "uv_manipulating.rotate_uvs_to_closest_orthogonal", "selection.isolate_selection_by_direction", "uv_unwrapping.unwrap_by_direction"]
+module_names = ["helper", "image.export_pixel_uv_layout", "uv_manipulating.move_uv_to_closest_pixel", "uv_manipulating.mirror_uv_around_vertex", "uv_manipulating.rotate_uvs_to_closest_orthogonal",  "selection.isolate_selection_by_direction", "uv_unwrapping.unwrap_by_direction"]
 
 
 def register():
