@@ -183,23 +183,9 @@ class OT_RotateUVsToClosestOrthogonal(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 
-def add_menu_item(self, context):
-    self.layout.operator(OT_RotateUVsToClosestOrthogonal.bl_idname, icon="DRIVER_ROTATIONAL_DIFFERENCE")
-
-
-def add_pie_item(self: bpy.types.Menu, context):
-    self.layout.menu_pie().operator(OT_RotateUVsToClosestOrthogonal.bl_idname, icon="DRIVER_ROTATIONAL_DIFFERENCE")
-
-
 def register():
     bpy.utils.register_class(OT_RotateUVsToClosestOrthogonal)
-
-    bpy.types.IMAGE_MT_uvs_snap.append(add_menu_item)
-    # bpy.types.IMAGE_MT_uvs_snap_pie.append(add_pie_item)
 
 
 def unregister():
     bpy.utils.unregister_class(OT_RotateUVsToClosestOrthogonal)
-
-    bpy.types.IMAGE_MT_uvs_snap.remove(add_menu_item)
-    # bpy.types.IMAGE_MT_uvs_snap_pie.remove(add_pie_item)

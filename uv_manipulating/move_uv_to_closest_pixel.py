@@ -144,24 +144,9 @@ class OT_MoveUVToClosestPixel(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def add_menu_item(self: bpy.types.Menu, context):
-    self.layout.separator()
-    self.layout.operator(OT_MoveUVToClosestPixel.bl_idname, icon="RESTRICT_SELECT_ON")
-
-
-def add_pie_item(self: bpy.types.Menu, context):
-    self.layout.menu_pie().operator(OT_MoveUVToClosestPixel.bl_idname, icon="RESTRICT_SELECT_ON")
-
-
 def register():
     bpy.utils.register_class(OT_MoveUVToClosestPixel)
-
-    bpy.types.IMAGE_MT_uvs_snap.append(add_menu_item)
-    # bpy.types.IMAGE_MT_uvs_snap_pie.append(add_pie_item)
 
 
 def unregister():
     bpy.utils.unregister_class(OT_MoveUVToClosestPixel)
-
-    bpy.types.IMAGE_MT_uvs_snap.remove(add_menu_item)
-    # bpy.types.IMAGE_MT_uvs_snap_pie.remove(add_pie_item)
